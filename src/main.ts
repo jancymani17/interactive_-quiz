@@ -427,5 +427,3 @@ class AppComponent {
   }
 
 }
-
-bootstrapApplication(AppComponent);
