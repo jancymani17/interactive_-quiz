@@ -16,14 +16,18 @@ const db = mysql.createPool({
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
+
   ssl: {
-    ca: process.env.DB_CA_CERT
+    ca: process.env.DB_CA_CERT,
+    servername: 'mysql-1b2a3de7-jancymani17-4168.a.aivencloud.com'
   },
+
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
 });
 
+// Check MySQL connection
 db.getConnection((err, connection) => {
   if (err) {
     console.error('MySQL connection failed:', err.message);
@@ -34,7 +38,7 @@ db.getConnection((err, connection) => {
   connection.release();
 });
 
-// Test route
+// Test API
 app.get('/', (req, res) => {
   res.send('Quiz API is running!');
 });
@@ -56,6 +60,7 @@ app.get('/questions', (req, res) => {
   db.query(sql, params, (err, results) => {
     if (err) {
       console.error('Query failed:', err.message);
+
       return res.status(500).json({
         error: 'Failed to fetch questions'
       });
@@ -65,6 +70,7 @@ app.get('/questions', (req, res) => {
   });
 });
 
+// Start server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });

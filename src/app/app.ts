@@ -1,48 +1,52 @@
-import { Component, input, output } from '@angular/core';
 
+import {
+  Component,
+  input,
+  output,
+  inject,
+  OnInit
+} from '@angular/core';
+
+import { HttpClient } from '@angular/common/http';
+
+// QUESTION MODEL
 interface Question {
   question: string;
   options: string[];
   answer: string;
 }
 
+// QUESTION COMPONENT
 @Component({
   selector: 'app-question',
   standalone: true,
 
   template: `
     <div class="question-box">
-
       <h2>{{ question().question }}</h2>
 
       <div class="options">
-
         @for (option of question().options; track option) {
-
           <button
+            type="button"
             [class.selected]="selectedAnswer === option"
-            (click)="selectAnswer(option)"
-          >
+            (click)="selectAnswer(option)">
             {{ option }}
           </button>
-
         }
-
       </div>
 
       <button
+        type="button"
         class="submit-btn"
         [disabled]="!selectedAnswer"
-        (click)="submitAnswer()"
-      >
+        (click)="submitAnswer()">
         Submit Answer
       </button>
-
     </div>
   `,
 
   styles: [`
-
     .question-box h2 {
       color: #222;
       margin-bottom: 20px;
@@ -91,13 +95,10 @@ interface Question {
       background: #aaa;
       cursor: not-allowed;
     }
-
   `]
 })
-  export class QuestionComponent {
-
+export class QuestionComponent {
   question = input.required<Question>();
-
   answerSelected = output<string>();
 
   selectedAnswer = '';
@@ -107,139 +108,151 @@ interface Question {
   }
 
   submitAnswer() {
-
-    if (!this.selectedAnswer) {
-      return;
-    }
+    if (!this.selectedAnswer) return;
 
     this.answerSelected.emit(this.selectedAnswer);
-
     this.selectedAnswer = '';
   }
 }
 
 
+// MAIN APP COMPONENT
 @Component({
   selector: 'app-root',
   standalone: true,
-
   imports: [QuestionComponent],
 
   template: `
-
     <div class="quiz-container">
 
-      @if (!quizFinished) {
+      @if (showWelcomePage) {
+        <div class="welcome-page">
+          <h1>INTERACTIVE QUIZ</h1>
 
-        <h1>ANGULAR INTERACTIVE QUIZ</h1>
-
-        <p class="progress">
-          Question {{ currentQuestion + 1 }}
-          of
-          {{ questions.length }}
-        </p>
-
-        <div class="progress-bar">
-
-          <div
-            class="progress-fill"
-            [style.width.%]="progressPercentage">
-          </div>
-
-        </div>
-
-        <app-question
-          [question]="questions[currentQuestion]"
-          (answerSelected)="submitAnswer($event)">
-        </app-question>
-
-      }
-
-      @else {
-
-        <div class="results">
-
-          <h1>Quiz Completed!</h1>
-
-          <div class="score">
-
-            <h2>
-              {{ score }} / {{ questions.length }}
-            </h2>
-
-            <p>Your Score</p>
-
-            <p>
-              Percentage:
-              {{ percentage }}%
-            </p>
-
-          </div>
-
-          <h2>Results Breakdown</h2>
-
-          @for (
-            question of questions;
-            let i = $index;
-            track i
-          ) {
-
-            <div class="result-item">
-
-              <h3>
-                {{ i + 1 }}. {{ question.question }}
-              </h3>
-
-              <p>
-                Your Answer:
-                <strong>
-                  {{ userAnswers[i] }}
-                </strong>
-              </p>
-
-              <p>
-                Correct Answer:
-                <strong>
-                  {{ question.answer }}
-                </strong>
-              </p>
-
-              @if (userAnswers[i] === question.answer) {
-
-                <p class="correct">
-                  ✓ Correct
-                </p>
-
-              }
-
-              @else {
-
-                <p class="wrong">
-                  ✗ Wrong
-                </p>
-
-              }
-
-            </div>
-
-          }
+          <p>Welcome! Ready to test your knowledge?</p>
 
           <button
-            class="restart-btn"
-            (click)="restartQuiz()">
-            Restart Quiz
+            type="button"
+            class="start-btn"
+            (click)="startQuiz()">
+            Start Quiz
+          </button>
+        </div>
+      } @else {
+
+        <div class="menu">
+          <button
+            type="button"
+            class="menu-btn"
+            (click)="showMenu = !showMenu">
+            ☰ Menu
           </button>
 
+          @if (showMenu) {
+            <div class="menu-list">
+              @for (language of languages; track language) {
+                <button
+                  type="button"
+                  [class.active]="selectedLanguage === language"
+                  (click)="selectLanguage(language)">
+                  {{ language }}
+                </button>
+              }
+            </div>
+          }
         </div>
 
+        <h1>{{ selectedLanguage }} Quiz</h1>
+
+        @if (loading) {
+          <div class="loading">
+            <div class="spinner"></div>
+            <h2>Loading questions...</h2>
+            <p>Please wait while questions are loading.</p>
+          </div>
+        } @else if (errorMessage) {
+          <p class="error">{{ errorMessage }}</p>
+
+          <button
+            type="button"
+            class="restart-btn"
+            (click)="selectLanguage(selectedLanguage)">
+            Try Again
+          </button>
+        } @else if (questions.length === 0) {
+          <p class="message">
+            No questions available for {{ selectedLanguage }}.
+          </p>
+        } @else if (!quizFinished) {
+
+          <p class="progress">
+            Question {{ currentQuestion + 1 }}
+            of {{ questions.length }}
+          </p>
+
+          <div class="progress-bar">
+            <div
+              class="progress-fill"
+              [style.width.%]="progressPercentage">
+            </div>
+          </div>
+
+          <app-question
+            [question]="questions[currentQuestion]"
+            (answerSelected)="submitAnswer($event)">
+          </app-question>
+
+        } @else {
+
+          <div class="results">
+            <h1>Quiz Completed!</h1>
+
+            <div class="score">
+              <h2>{{ score }} / {{ questions.length }}</h2>
+              <p>Your Score</p>
+              <p>Percentage: {{ percentage }}%</p>
+            </div>
+
+            <h2>Results Breakdown</h2>
+
+            @for (question of questions; track $index; let i = $index) {
+              <div class="result-item">
+                <h3>{{ i + 1 }}. {{ question.question }}</h3>
+
+                <p>
+                  Your Answer:
+                  <strong>{{ userAnswers[i] || 'Not answered' }}</strong>
+                </p>
+
+                <p>
+                  Correct Answer:
+                  <strong>{{ question.answer }}</strong>
+                </p>
+
+                @if (
+                  userAnswers[i]?.trim()?.toLowerCase() ===
+                  question.answer.trim().toLowerCase()
+                ) {
+                  <p class="correct">✓ Correct</p>
+                } @else {
+                  <p class="wrong">✗ Wrong</p>
+                }
+              </div>
+            }
+
+            <button
+              type="button"
+              class="restart-btn"
+              (click)="restartQuiz()">
+              Restart Quiz
+            </button>
+          </div>
+        }
       }
-
     </div>
-
   `,
 
   styles: [`
-
     * {
       box-sizing: border-box;
     }
@@ -260,9 +273,117 @@ interface Question {
       border-radius: 15px;
     }
 
+    .menu {
+      position: relative;
+      margin-bottom: 20px;
+    }
+
+    .menu-btn {
+      padding: 10px 18px;
+      background: #6366f1;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    .menu-list {
+      position: absolute;
+      top: 45px;
+      left: 0;
+      min-width: 140px;
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 8px;
+      z-index: 10;
+      box-shadow: 0 4px 12px #00000015;
+    }
+
+    .menu-list button {
+      display: block;
+      width: 100%;
+      padding: 10px;
+      border: none;
+      border-radius: 5px;
+      background: white;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .menu-list button:hover,
+    .menu-list button.active {
+      background: #eef0ff;
+      color: #4f46e5;
+    }
+
     h1 {
       text-align: center;
       color: #222;
+    }
+
+    .welcome-page {
+      text-align: center;
+      padding: 60px 20px;
+      background: white;
+      border-radius: 12px;
+      margin-top: 30px;
+    }
+
+    .welcome-page h1 {
+      color: #6366f1;
+      font-size: 32px;
+    }
+
+    .welcome-page p {
+      color: #555;
+      font-size: 18px;
+      margin: 20px 0;
+    }
+
+    .start-btn {
+      padding: 14px 28px;
+      border: none;
+      border-radius: 8px;
+      background: #6366f1;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    .start-btn:hover {
+      background: #4f46e5;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 45px 20px;
+      color: #6366f1;
+    }
+
+    .loading h2 {
+      margin-top: 20px;
+    }
+
+    .loading p {
+      color: #555;
+    }
+
+    .spinner {
+      width: 42px;
+      height: 42px;
+      margin: auto;
+      border: 5px solid #ddd;
+      border-top-color: #6366f1;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
     }
 
     .progress {
@@ -312,6 +433,7 @@ interface Question {
       margin: 15px 0;
       border-radius: 8px;
       background: white;
+      overflow-wrap: anywhere;
     }
 
     .result-item h3 {
@@ -323,9 +445,15 @@ interface Question {
       font-weight: bold;
     }
 
-    .wrong {
-      color: red;
+    .wrong,
+    .error {
+      color: #dc2626;
       font-weight: bold;
+    }
+
+    .message {
+      text-align: center;
+      padding: 20px;
     }
 
     .restart-btn {
@@ -345,7 +473,6 @@ interface Question {
     }
 
     @media (max-width: 600px) {
-
       .quiz-container {
         margin: 20px 10px;
         padding: 20px;
@@ -359,146 +486,131 @@ interface Question {
         font-size: 20px;
       }
     }
-
   `]
 })
-export class AppComponent {
+export class AppComponent implements OnInit {
+  private http = inject(HttpClient);
+
+  languages = ['C', 'C++', 'Java', 'Angular'];
+
+  selectedLanguage = 'Angular';
+
+  showMenu = false;
+  showWelcomePage = true;
+  loading = false;
+  errorMessage = '';
 
   currentQuestion = 0;
-
   score = 0;
-
   quizFinished = false;
 
   userAnswers: string[] = [];
+  questions: Question[] = [];
 
-  questions: Question[] = [
+  private questionCache: Record<string, Question[]> = {};
 
-    {
-      question:
-        'In Angular, which decorator is commonly used to pass data from a parent component to a child component?',
+  ngOnInit() {
+    // Welcome page appears first.
+  }
 
-      options: [
-        '@Input()',
-        '@Pipe()',
-        '@Output()',
-        '@Inject()'
-      ],
+  startQuiz() {
+    this.showWelcomePage = false;
+    this.selectLanguage(this.selectedLanguage);
+  }
 
-      answer: '@Input()'
-    },
+  selectLanguage(language: string) {
+    this.selectedLanguage = language;
+    this.showMenu = false;
+    this.showWelcomePage = false;
 
-    {
-      question:
-        'Which Angular feature is used to handle a button click?',
+    this.errorMessage = '';
+    this.currentQuestion = 0;
+    this.score = 0;
+    this.userAnswers = [];
+    this.quizFinished = false;
 
-      options: [
-        'Class Binding',
-        'Event binding',
-        'Property binding',
-        'Interpolation'
-      ],
+    // Use cached questions when available.
+    const cachedQuestions = this.questionCache[language];
 
-      answer: 'Event binding'
-    },
-
-    {
-      question:
-        'Which Angular feature is commonly used for sending an event from a child component to its parent?',
-
-      options: [
-        '@HostBinding',
-        '@Pipe()',
-        '@Output()',
-        '@Input()'
-      ],
-
-      answer: '@Output()'
-    },
-
-    {
-      question:
-        'What is Angular primarily used for?',
-
-      options: [
-        'Editing images',
-        'Creating operating systems',
-        'Building web applications',
-        'Managing database'
-      ],
-
-      answer: 'Building web applications'
-    },
-
-    {
-      question:
-        'Which Angular feature is commonly used to share reusable logic or data between components?',
-
-      options: [
-        'Service',
-        'Selector',
-        'Style sheet',
-        'Template'
-      ],
-
-      answer: 'Service'
+    if (cachedQuestions) {
+      this.questions = cachedQuestions;
+      this.loading = false;
+      return;
     }
 
-  ];
+    this.questions = [];
+    this.loading = true;
+
+    // CORRECTED RENDER BACKEND URL
+    const url =
+      `https://interactive-quiz-backend-7etv.onrender.com/questions?category=${encodeURIComponent(language)}`;
+
+    this.http.get<any[]>(url).subscribe({
+      next: (data) => {
+        this.questions = data.map((q) => ({
+          question: q.question,
+          options: [
+            q.option1,
+            q.option2,
+            q.option3,
+            q.option4
+          ],
+          answer: q.answer
+        }));
+
+        this.questionCache[language] = this.questions;
+        this.loading = false;
+      },
+
+      error: (err) => {
+        console.error('Failed to load questions:', err);
+
+        this.questions = [];
+        this.errorMessage =
+          'Unable to load questions. Please try again.';
+
+        this.loading = false;
+      }
+    });
+  }
 
   submitAnswer(answer: string) {
+    const question = this.questions[this.currentQuestion];
+
+    if (!question) return;
 
     this.userAnswers[this.currentQuestion] = answer;
 
     if (
-      answer ===
-      this.questions[this.currentQuestion].answer
+      answer.trim().toLowerCase() ===
+      question.answer.trim().toLowerCase()
     ) {
       this.score++;
     }
 
-    if (
-      this.currentQuestion <
-      this.questions.length - 1
-    ) {
-
+    if (this.currentQuestion < this.questions.length - 1) {
       this.currentQuestion++;
-
     } else {
-
       this.quizFinished = true;
-
     }
   }
 
   get progressPercentage(): number {
-
-    return (
-      ((this.currentQuestion + 1) /
-        this.questions.length) *
-      100
-    );
-
+    return this.questions.length
+      ? ((this.currentQuestion + 1) / this.questions.length) * 100
+      : 0;
   }
 
   get percentage(): number {
-
-    return Math.round(
-      (this.score / this.questions.length) * 100
-    );
-
+    return this.questions.length
+      ? Math.round((this.score / this.questions.length) * 100)
+      : 0;
   }
 
   restartQuiz() {
-
     this.currentQuestion = 0;
-
     this.score = 0;
-
     this.userAnswers = [];
-
     this.quizFinished = false;
-
   }
-
 }
