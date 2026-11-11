@@ -26,7 +26,7 @@ const db = mysql.createPool({
 
 db.getConnection((err, connection) => {
   if (err) {
-    console.error('MySQL connection failed:', err);
+    console.error('MySQL connection failed:', err.message);
     return;
   }
 
@@ -44,7 +44,7 @@ app.get('/questions', (req, res) => {
   const category = req.query.category;
 
   let sql = 'SELECT * FROM questions';
-  let params = [];
+  const params = [];
 
   if (category) {
     sql += ' WHERE category = ?';
